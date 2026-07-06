@@ -160,6 +160,7 @@ public final class NAuxiliaryModule extends XposedModule {
         count += hookNicoSessionGetter(classLoader);
         count += hookNicoSessionReturn(classLoader);
         count += hookSettingUiStatePremium(classLoader);
+        count += hookMyPagePremiumDisplay(classLoader);
         count += hookDataModelPremiumWithDexKit(classLoader);
         if (count > 0) {
             log(Log.INFO, TAG, "Premium unlock hooks installed: " + count);
@@ -351,6 +352,56 @@ public final class NAuxiliaryModule extends XposedModule {
             }
         } catch (Throwable throwable) {
             log(Log.WARN, TAG, "Failed to hook gp.y1.e", throwable);
+        }
+        return count;
+    }
+
+    private int hookMyPagePremiumDisplay(ClassLoader classLoader) {
+        int count = 0;
+        count += hookNvSessionUserDetailPremium(classLoader);
+        count += hookNicoPointPremium(classLoader);
+        return count;
+    }
+
+    private int hookNvSessionUserDetailPremium(ClassLoader classLoader) {
+        try {
+            Class<?> userDetailClass = Class.forName("jd.e", false, classLoader);
+            return hookBooleanMethodOnClass(userDetailClass, "h",
+                    "nauxv.premium.nvSessionUserDetail.h");
+        } catch (Throwable throwable) {
+            log(Log.WARN, TAG, "Failed to hook jd.e.h", throwable);
+            return 0;
+        }
+    }
+
+    private int hookNicoPointPremium(ClassLoader classLoader) {
+        int count = 0;
+        try {
+            Class<?> nicoPointClass = Class.forName(
+                    "jp.nicovideo.android.ui.mypage.top.g$d$c", false, classLoader);
+            count += hookBooleanMethodOnClass(nicoPointClass, "e",
+                    "nauxv.premium.nicoPoint.e");
+            for (Method method : nicoPointClass.getDeclaredMethods()) {
+                if (!"d".equals(method.getName())) {
+                    continue;
+                }
+                if (method.getReturnType() != Boolean.TYPE || method.getParameterTypes().length != 0) {
+                    continue;
+                }
+                method.setAccessible(true);
+                hook(method)
+                        .setId("nauxv.premium.nicoPoint.d")
+                        .setExceptionMode(ExceptionMode.PROTECTIVE)
+                        .intercept(chain -> {
+                            if (!shouldUnlockPremium()) {
+                                return chain.proceed();
+                            }
+                            return false;
+                        });
+                count++;
+            }
+        } catch (Throwable throwable) {
+            log(Log.WARN, TAG, "Failed to hook NicoPoint premium", throwable);
         }
         return count;
     }
