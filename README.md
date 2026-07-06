@@ -39,4 +39,6 @@ niconico Android 的 LSPosed/Xposed 模块，提供翻译与增强功能。
 
 ## 许可
 
-MIT
+NAuxiliary 以 GNU General Public License v3.0 or later 授权发布。
+
+详见 [LICENSE](LICENSE)。项目中的第三方依赖和目标应用仍遵循其各自许可证与条款。
