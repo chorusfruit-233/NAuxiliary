@@ -156,6 +156,7 @@ public final class NAuxiliaryModule extends XposedModule {
     private void hookPremiumUnlock(ClassLoader classLoader) {
         int count = 0;
         count += hookNicoUserInfoPremium(classLoader);
+        count += hookSaveWatchPremium(classLoader);
         count += hookNicoSessionConverter(classLoader);
         count += hookNicoSessionGetter(classLoader);
         count += hookNicoSessionReturn(classLoader);
@@ -179,6 +180,17 @@ public final class NAuxiliaryModule extends XposedModule {
             log(Log.WARN, TAG, "Failed to hook ue.b premium methods", throwable);
         }
         return count;
+    }
+
+    private int hookSaveWatchPremium(ClassLoader classLoader) {
+        try {
+            Class<?> saveWatchUserClass = Class.forName("ue.a", false, classLoader);
+            return hookBooleanMethodOnClass(saveWatchUserClass, "a",
+                    "nauxv.premium.saveWatch.a");
+        } catch (Throwable throwable) {
+            log(Log.WARN, TAG, "Failed to hook ue.a save watch premium", throwable);
+            return 0;
+        }
     }
 
     private int hookBooleanMethodOnClass(Class<?> clazz, String methodName, String hookId) {
