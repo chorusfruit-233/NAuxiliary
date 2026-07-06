@@ -10,6 +10,7 @@ final class ModuleConfig {
     private static final String KEY_WEBVIEW_TRANSLATION_ENABLED = "webview_translation_enabled";
     private static final String KEY_AD_REMOVAL_ENABLED = "ad_removal_enabled";
     private static final String KEY_DEBUG_LOG_ENABLED = "debug_log_enabled";
+    private static final String KEY_PREMIUM_UNLOCK_ENABLED = "premium_unlock_enabled";
 
     private volatile boolean loaded;
     private volatile boolean translationEnabled = true;
@@ -17,6 +18,7 @@ final class ModuleConfig {
     private volatile boolean webViewTranslationEnabled = true;
     private volatile boolean adRemovalEnabled = true;
     private volatile boolean debugLogEnabled;
+    private volatile boolean premiumUnlockEnabled = true;
 
     void refresh(Context context) {
         SharedPreferences preferences = getPreferences(context);
@@ -28,6 +30,7 @@ final class ModuleConfig {
         webViewTranslationEnabled = preferences.getBoolean(KEY_WEBVIEW_TRANSLATION_ENABLED, true);
         adRemovalEnabled = preferences.getBoolean(KEY_AD_REMOVAL_ENABLED, true);
         debugLogEnabled = preferences.getBoolean(KEY_DEBUG_LOG_ENABLED, false);
+        premiumUnlockEnabled = preferences.getBoolean(KEY_PREMIUM_UNLOCK_ENABLED, true);
         loaded = true;
     }
 
@@ -37,7 +40,8 @@ final class ModuleConfig {
             boolean runtimeTextTranslationEnabled,
             boolean webViewTranslationEnabled,
             boolean adRemovalEnabled,
-            boolean debugLogEnabled
+            boolean debugLogEnabled,
+            boolean premiumUnlockEnabled
     ) {
         SharedPreferences preferences = getPreferences(context);
         if (preferences != null) {
@@ -47,6 +51,7 @@ final class ModuleConfig {
                     .putBoolean(KEY_WEBVIEW_TRANSLATION_ENABLED, webViewTranslationEnabled)
                     .putBoolean(KEY_AD_REMOVAL_ENABLED, adRemovalEnabled)
                     .putBoolean(KEY_DEBUG_LOG_ENABLED, debugLogEnabled)
+                    .putBoolean(KEY_PREMIUM_UNLOCK_ENABLED, premiumUnlockEnabled)
                     .apply();
         }
         this.translationEnabled = translationEnabled;
@@ -54,6 +59,7 @@ final class ModuleConfig {
         this.webViewTranslationEnabled = webViewTranslationEnabled;
         this.adRemovalEnabled = adRemovalEnabled;
         this.debugLogEnabled = debugLogEnabled;
+        this.premiumUnlockEnabled = premiumUnlockEnabled;
         loaded = true;
     }
 
@@ -83,6 +89,10 @@ final class ModuleConfig {
 
     boolean isDebugLogEnabled() {
         return debugLogEnabled;
+    }
+
+    boolean isPremiumUnlockEnabled() {
+        return premiumUnlockEnabled;
     }
 
     boolean isLoaded() {

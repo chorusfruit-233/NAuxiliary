@@ -63,6 +63,7 @@ public final class NAuxiliaryModule extends XposedModule {
     private static final String CONFIG_WEBVIEW_TRANSLATION_ENABLED = "\u7ffb\u8bd1 WebView \u5185\u5bb9";
     private static final String CONFIG_AD_REMOVAL_ENABLED = "\u53bb\u9664\u5e7f\u544a";
     private static final String CONFIG_DEBUG_LOG_ENABLED = "\u8c03\u8bd5\u65e5\u5fd7";
+    private static final String CONFIG_PREMIUM_UNLOCK = "\u89e3\u9501\u4f1a\u5458\u7279\u6743";
     private static final String CONFIG_SAVE = "\u4fdd\u5b58";
     private static final String CONFIG_CANCEL = "\u53d6\u6d88";
     private static final String CONFIG_SAVED = "\u5df2\u4fdd\u5b58\uff0c\u90e8\u5206\u9875\u9762\u9700\u91cd\u65b0\u8fdb\u5165\u6216\u91cd\u542f niconico";
@@ -146,9 +147,96 @@ public final class NAuxiliaryModule extends XposedModule {
             hookAdRemoval(classLoader);
             hookComposeTextMethods(classLoader);
             hookPreferenceMethods(classLoader);
+            hookPremiumUnlock(classLoader);
         } catch (Throwable throwable) {
             log(Log.ERROR, TAG, "Failed to install app translation hooks", throwable);
         }
+    }
+
+    private void hookPremiumUnlock(ClassLoader classLoader) {
+        int count = 0;
+        count += hookNicoSessionPremium(classLoader);
+        count += hookDataModelPremiumWithDexKit(classLoader);
+        if (count > 0) {
+            log(Log.INFO, TAG, "Premium unlock hooks installed: " + count);
+        } else {
+            log(Log.WARN, TAG, "No premium unlock hooks were installed");
+        }
+    }
+
+    private int hookNicoSessionPremium(ClassLoader classLoader) {
+        try {
+            Class<?> sessionClass = Class.forName(
+                    "jp.co.dwango.niconico.domain.user.NicoSession", false, classLoader);
+            Method isPremium = sessionClass.getDeclaredMethod("isPremium");
+            isPremium.setAccessible(true);
+            hook(isPremium)
+                    .setId("nauxv.premium.nicoSession")
+                    .setExceptionMode(ExceptionMode.PROTECTIVE)
+                    .intercept(chain -> {
+                        if (!shouldUnlockPremium()) {
+                            return chain.proceed();
+                        }
+                        return true;
+                    });
+            return 1;
+        } catch (Throwable throwable) {
+            log(Log.WARN, TAG, "Failed to hook NicoSession.isPremium", throwable);
+            return 0;
+        }
+    }
+
+    private int hookDataModelPremiumWithDexKit(ClassLoader classLoader) {
+        int count = 0;
+        try (DexKitLocator locator = DexKitLocator.fromClassLoader(classLoader)) {
+            if (!locator.isValid()) {
+                return 0;
+            }
+            for (Class<?> clazz : locator.findClassesUsingStrings("isPremium")) {
+                count += hookBooleanGettersOnClass(clazz);
+            }
+        } catch (Throwable throwable) {
+            log(Log.WARN, TAG, "DexKit failed to find premium data models", throwable);
+        }
+        return count;
+    }
+
+    private int hookBooleanGettersOnClass(Class<?> clazz) {
+        int count = 0;
+        for (Method method : clazz.getDeclaredMethods()) {
+            if (method.getReturnType() != Boolean.TYPE || method.getParameterTypes().length != 0) {
+                continue;
+            }
+            String name = method.getName();
+            if ("equals".equals(name) || "hashCode".equals(name) || "toString".equals(name)) {
+                continue;
+            }
+            if (method.getDeclaringClass().equals(Object.class)) {
+                continue;
+            }
+            method.setAccessible(true);
+            try {
+                hook(method)
+                        .setId("nauxv.premium.dataModel." + clazz.getName() + "." + name)
+                        .setExceptionMode(ExceptionMode.PROTECTIVE)
+                        .intercept(chain -> {
+                            if (!shouldUnlockPremium()) {
+                                return chain.proceed();
+                            }
+                            return true;
+                        });
+                count++;
+            } catch (Throwable throwable) {
+                log(Log.WARN, TAG, "Failed to hook boolean getter: "
+                        + clazz.getName() + "." + name, throwable);
+            }
+        }
+        return count;
+    }
+
+    private boolean shouldUnlockPremium() {
+        ensureConfigLoaded();
+        return config.isPremiumUnlockEnabled();
     }
 
     private void hookNicoSettingsEntry(ClassLoader classLoader) {
@@ -869,12 +957,14 @@ public final class NAuxiliaryModule extends XposedModule {
         Switch webViewSwitch = createConfigSwitch(context, CONFIG_WEBVIEW_TRANSLATION_ENABLED, config.isWebViewTranslationSwitchEnabled());
         Switch adRemovalSwitch = createConfigSwitch(context, CONFIG_AD_REMOVAL_ENABLED, config.isAdRemovalEnabled());
         Switch debugSwitch = createConfigSwitch(context, CONFIG_DEBUG_LOG_ENABLED, config.isDebugLogEnabled());
+        Switch premiumSwitch = createConfigSwitch(context, CONFIG_PREMIUM_UNLOCK, config.isPremiumUnlockEnabled());
 
         content.addView(translationSwitch);
         content.addView(runtimeSwitch);
         content.addView(webViewSwitch);
         content.addView(adRemovalSwitch);
         content.addView(debugSwitch);
+        content.addView(premiumSwitch);
 
         new AlertDialog.Builder(context)
                 .setTitle(CONFIG_DIALOG_TITLE)
@@ -887,7 +977,8 @@ public final class NAuxiliaryModule extends XposedModule {
                             runtimeSwitch.isChecked(),
                             webViewSwitch.isChecked(),
                             adRemovalSwitch.isChecked(),
-                            debugSwitch.isChecked()
+                            debugSwitch.isChecked(),
+                            premiumSwitch.isChecked()
                     );
                     Toast.makeText(context, CONFIG_SAVED, Toast.LENGTH_LONG).show();
                 })
