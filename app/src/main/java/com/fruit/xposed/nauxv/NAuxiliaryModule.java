@@ -155,7 +155,9 @@ public final class NAuxiliaryModule extends XposedModule {
 
     private void hookPremiumUnlock(ClassLoader classLoader) {
         int count = 0;
-        count += hookNicoSessionPremium(classLoader);
+        count += hookNicoSessionGetter(classLoader);
+        count += hookNicoSessionReturn(classLoader);
+        count += hookSettingUiStatePremium(classLoader);
         count += hookDataModelPremiumWithDexKit(classLoader);
         if (count > 0) {
             log(Log.INFO, TAG, "Premium unlock hooks installed: " + count);
@@ -164,14 +166,14 @@ public final class NAuxiliaryModule extends XposedModule {
         }
     }
 
-    private int hookNicoSessionPremium(ClassLoader classLoader) {
+    private int hookNicoSessionGetter(ClassLoader classLoader) {
         try {
             Class<?> sessionClass = Class.forName(
                     "jp.co.dwango.niconico.domain.user.NicoSession", false, classLoader);
             Method isPremium = sessionClass.getDeclaredMethod("isPremium");
             isPremium.setAccessible(true);
             hook(isPremium)
-                    .setId("nauxv.premium.nicoSession")
+                    .setId("nauxv.premium.nicoSession.isPremium")
                     .setExceptionMode(ExceptionMode.PROTECTIVE)
                     .intercept(chain -> {
                         if (!shouldUnlockPremium()) {
@@ -184,6 +186,86 @@ public final class NAuxiliaryModule extends XposedModule {
             log(Log.WARN, TAG, "Failed to hook NicoSession.isPremium", throwable);
             return 0;
         }
+    }
+
+    private int hookNicoSessionReturn(ClassLoader classLoader) {
+        try {
+            Class<?> clientContextClass = Class.forName("aj.b", false, classLoader);
+            Method jMethod = clientContextClass.getDeclaredMethod("j");
+            jMethod.setAccessible(true);
+            hook(jMethod)
+                    .setId("nauxv.premium.clientContext.j")
+                    .setExceptionMode(ExceptionMode.PROTECTIVE)
+                    .intercept(chain -> {
+                        Object result = chain.proceed();
+                        if (!shouldUnlockPremium() || result == null) {
+                            return result;
+                        }
+                        forcePremiumField(result);
+                        return result;
+                    });
+            return 1;
+        } catch (Throwable throwable) {
+            log(Log.WARN, TAG, "Failed to hook aj.b.j", throwable);
+            return 0;
+        }
+    }
+
+    private void forcePremiumField(Object nicoSession) {
+        try {
+            Field field = nicoSession.getClass().getDeclaredField("isPremium");
+            field.setAccessible(true);
+            makeFieldModifiable(field);
+            field.setBoolean(nicoSession, true);
+        } catch (Throwable throwable) {
+            log(Log.WARN, TAG, "Failed to force isPremium field on NicoSession", throwable);
+        }
+    }
+
+    private void makeFieldModifiable(Field field) {
+        try {
+            Field accessFlagsField = Field.class.getDeclaredField("accessFlags");
+            accessFlagsField.setAccessible(true);
+            accessFlagsField.setInt(field, field.getModifiers() & ~0x10);
+        } catch (NoSuchFieldException e) {
+            try {
+                Field modifiersField = Field.class.getDeclaredField("modifiers");
+                modifiersField.setAccessible(true);
+                modifiersField.setInt(field, field.getModifiers() & ~0x10);
+            } catch (Throwable ignored) {
+            }
+        } catch (Throwable ignored) {
+        }
+    }
+
+    private int hookSettingUiStatePremium(ClassLoader classLoader) {
+        int count = 0;
+        try {
+            Class<?> uiStateClass = Class.forName("gp.y1", false, classLoader);
+            for (Method method : uiStateClass.getDeclaredMethods()) {
+                if (method.getReturnType() != Boolean.TYPE || method.getParameterTypes().length != 0) {
+                    continue;
+                }
+                String name = method.getName();
+                if ("e".equals(name)) {
+                    method.setAccessible(true);
+                    hook(method)
+                            .setId("nauxv.premium.settingUiState.e")
+                            .setExceptionMode(ExceptionMode.PROTECTIVE)
+                            .intercept(chain -> {
+                                if (!shouldUnlockPremium()) {
+                                    return chain.proceed();
+                                }
+                                return true;
+                            });
+                    count++;
+                    break;
+                }
+            }
+        } catch (Throwable throwable) {
+            log(Log.WARN, TAG, "Failed to hook gp.y1.e", throwable);
+        }
+        return count;
     }
 
     private int hookDataModelPremiumWithDexKit(ClassLoader classLoader) {
