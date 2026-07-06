@@ -1,3 +1,32 @@
 <resources>
     <string name="app_name">NAuxiliary</string>
+    <string name="app_subtitle">niconico 增强模块</string>
+    <string name="status_module_ready">模块已安装</string>
+    <string name="status_module_ready_desc">在 LSPosed 勾选 niconico 后，强制停止并重启目标应用即可生效。</string>
+    <string name="section_runtime">运行状态</string>
+    <string name="section_translation">翻译覆盖</string>
+    <string name="section_dexkit">DexKit 定位</string>
+    <string name="label_module_version">模块版本</string>
+    <string name="label_target_app">目标应用</string>
+    <string name="label_scope">作用域</string>
+    <string name="label_xposed_api">Xposed API</string>
+    <string name="label_min_sdk">最低 Android</string>
+    <string name="label_translation_assets">翻译资产</string>
+    <string name="label_hook_coverage">覆盖入口</string>
+    <string name="label_dexkit_status">接入状态</string>
+    <string name="label_dexkit_usage">适用范围</string>
+    <string name="target_package">jp.nicovideo.android</string>
+    <string name="target_app_installed">已安装：%1$s</string>
+    <string name="target_app_missing">未检测到 niconico，请先安装目标应用。</string>
+    <string name="module_version_value">v%1$s (%2$d)</string>
+    <string name="scope_value">jp.nicovideo.android</string>
+    <string name="xposed_api_value">libxposed API 102</string>
+    <string name="min_sdk_value">Android 10 / API 29</string>
+    <string name="translation_assets_value">%1$d 条（资源名 / 精确文本 / 短语）</string>
+    <string name="translation_hook_coverage">Resources、TextView、Toast、Compose、Preference、WebView</string>
+    <string name="dexkit_status_value">已接入 org.luckypray:dexkit 2.2.0</string>
+    <string name="dexkit_usage_value">用于后续定位 niconico 混淆类和内部方法；当前全局翻译仍走稳定的 framework hook。</string>
+    <string name="restart_hint">更新模块或翻译资产后，请在 LSPosed 中确认作用域，然后强制停止并重启 niconico。</string>
+    <string name="button_open_target">打开 niconico</string>
+    <string name="toast_target_missing">未找到 niconico 启动入口</string>
 </resources>

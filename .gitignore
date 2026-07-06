@@ -13,3 +13,6 @@
 .externalNativeBuild
 .cxx
 local.properties
+
+# Decompiled third-party APKs and extracted sources kept for local analysis.
+/reverse-engineering/
