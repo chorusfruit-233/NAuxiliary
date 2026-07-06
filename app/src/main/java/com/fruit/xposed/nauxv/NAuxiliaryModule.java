@@ -155,6 +155,8 @@ public final class NAuxiliaryModule extends XposedModule {
 
     private void hookPremiumUnlock(ClassLoader classLoader) {
         int count = 0;
+        count += hookNicoUserInfoPremium(classLoader);
+        count += hookNicoSessionConverter(classLoader);
         count += hookNicoSessionGetter(classLoader);
         count += hookNicoSessionReturn(classLoader);
         count += hookSettingUiStatePremium(classLoader);
@@ -166,24 +168,109 @@ public final class NAuxiliaryModule extends XposedModule {
         }
     }
 
+    private int hookNicoUserInfoPremium(ClassLoader classLoader) {
+        int count = 0;
+        try {
+            Class<?> userInfoClass = Class.forName("ue.b", false, classLoader);
+            count += hookBooleanMethodOnClass(userInfoClass, "A0", "nauxv.premium.nicoUserInfo.A0");
+            count += hookBooleanMethodOnClass(userInfoClass, "v0", "nauxv.premium.nicoUserInfo.v0");
+        } catch (Throwable throwable) {
+            log(Log.WARN, TAG, "Failed to hook ue.b premium methods", throwable);
+        }
+        return count;
+    }
+
+    private int hookBooleanMethodOnClass(Class<?> clazz, String methodName, String hookId) {
+        for (Method method : clazz.getDeclaredMethods()) {
+            if (!methodName.equals(method.getName())) {
+                continue;
+            }
+            if (method.getReturnType() != Boolean.TYPE || method.getParameterTypes().length != 0) {
+                continue;
+            }
+            method.setAccessible(true);
+            try {
+                hook(method)
+                        .setId(hookId)
+                        .setExceptionMode(ExceptionMode.PROTECTIVE)
+                        .intercept(chain -> {
+                            if (!shouldUnlockPremium()) {
+                                return chain.proceed();
+                            }
+                            return true;
+                        });
+                return 1;
+            } catch (Throwable throwable) {
+                log(Log.WARN, TAG, "Failed to hook " + clazz.getName() + "." + methodName, throwable);
+                return 0;
+            }
+        }
+        return 0;
+    }
+
+    private int hookNicoSessionConverter(ClassLoader classLoader) {
+        try {
+            Class<?> converterClass = Class.forName("xh.i", false, classLoader);
+            for (Method method : converterClass.getDeclaredMethods()) {
+                if (!"a".equals(method.getName())) {
+                    continue;
+                }
+                if (method.getReturnType() == Void.TYPE || method.getParameterTypes().length == 0) {
+                    continue;
+                }
+                method.setAccessible(true);
+                hook(method)
+                        .setId("nauxv.premium.nicoSessionConverter")
+                        .setExceptionMode(ExceptionMode.PROTECTIVE)
+                        .intercept(chain -> {
+                            Object result = chain.proceed();
+                            if (!shouldUnlockPremium() || result == null) {
+                                return result;
+                            }
+                            forcePremiumField(result);
+                            return result;
+                        });
+                return 1;
+            }
+        } catch (Throwable throwable) {
+            log(Log.WARN, TAG, "Failed to hook xh.i session converter", throwable);
+        }
+        return 0;
+    }
+
     private int hookNicoSessionGetter(ClassLoader classLoader) {
         try {
             Class<?> sessionClass = Class.forName(
                     "jp.co.dwango.niconico.domain.user.NicoSession", false, classLoader);
-            Method isPremium = sessionClass.getDeclaredMethod("isPremium");
-            isPremium.setAccessible(true);
-            hook(isPremium)
-                    .setId("nauxv.premium.nicoSession.isPremium")
-                    .setExceptionMode(ExceptionMode.PROTECTIVE)
-                    .intercept(chain -> {
-                        if (!shouldUnlockPremium()) {
-                            return chain.proceed();
-                        }
-                        return true;
-                    });
-            return 1;
+            int count = 0;
+            for (Method method : sessionClass.getDeclaredMethods()) {
+                if (method.getReturnType() != Boolean.TYPE || method.getParameterTypes().length != 0) {
+                    continue;
+                }
+                String name = method.getName();
+                if ("equals".equals(name) || "hashCode".equals(name) || "toString".equals(name)) {
+                    continue;
+                }
+                method.setAccessible(true);
+                try {
+                    hook(method)
+                            .setId("nauxv.premium.nicoSession." + name)
+                            .setExceptionMode(ExceptionMode.PROTECTIVE)
+                            .intercept(chain -> {
+                                if (!shouldUnlockPremium()) {
+                                    return chain.proceed();
+                                }
+                                return true;
+                            });
+                    count++;
+                } catch (Throwable throwable) {
+                    log(Log.WARN, TAG,
+                            "Failed to hook NicoSession." + name, throwable);
+                }
+            }
+            return count;
         } catch (Throwable throwable) {
-            log(Log.WARN, TAG, "Failed to hook NicoSession.isPremium", throwable);
+            log(Log.WARN, TAG, "Failed to hook NicoSession premium methods", throwable);
             return 0;
         }
     }
